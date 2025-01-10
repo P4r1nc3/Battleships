@@ -66,8 +66,8 @@ namespace Battleships
 
                 // Player's turn
                 Console.WriteLine("Your turn! Enter coordinates to fire (e.g., 34):");
-                string input = Console.ReadLine();
-                if (!computerBoard.FireAt(input))
+                string? input = Console.ReadLine();
+                if (string.IsNullOrWhiteSpace(input) || !computerBoard.FireAt(input))
                 {
                     Console.WriteLine("Invalid input or already fired there. Try again.");
                     continue;
@@ -132,11 +132,13 @@ namespace Battleships
                 while (!placed)
                 {
                     Console.WriteLine($"Place a ship of size {shipSize} (e.g., H09 or V85):");
-                    string input = Console.ReadLine();
-                    if (TryPlaceShip(input, shipSize))
-                        placed = true;
-                    else
+                    string? input = Console.ReadLine();
+                    if (string.IsNullOrWhiteSpace(input) || !TryPlaceShip(input, shipSize))
+                    {
                         Console.WriteLine("Invalid placement. Try again.");
+                        continue;
+                    }
+                    placed = true;
                 }
                 graphic.DisplayBoard(this, true);
             }
@@ -255,9 +257,9 @@ namespace Battleships
 
     internal class Graphic
     {
-        public string LastPlayerMove { get; set; }
+        public string LastPlayerMove { get; set; } = string.Empty;
         public bool LastPlayerHit { get; set; }
-        public string LastComputerMove { get; set; }
+        public string LastComputerMove { get; set; } = string.Empty;
         public bool LastComputerHit { get; set; }
 
         public void DisplayBoard(Board board, bool showShips)
