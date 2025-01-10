@@ -10,13 +10,8 @@ namespace Battleships
     {
         public int Size { get; }
         public int Hits { get; set; }
-        public List<(int x, int y)> Positions { get; }
+        public List<(int y, int x)> Positions { get; } = new();
 
-        public Ship(int size)
-        {
-            Size = size;
-            Hits = 0;
-            Positions = new List<(int x, int y)>();
-        }
+        public Ship(int size) => Size = size;
     }
 }
