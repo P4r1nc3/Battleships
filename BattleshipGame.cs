@@ -39,7 +39,6 @@ namespace Battleships
             InitializeBoard(playerViewBoard);
             InitializeBoard(computerViewBoard);
 
-            PlaceShips(playerBoard, playerShips);
             PlaceShips(computerBoard, computerShips);
         }
 
@@ -111,6 +110,51 @@ namespace Battleships
                 ship.Positions.Add((nx, ny));
             }
             ships.Add(ship);
+        }
+
+        public void PlaceShipsManually()
+        {
+            Console.WriteLine("Place your ships on the board.");
+            var shipSizes = new[] { 4, 3, 3, 2, 2, 2, 1, 1, 1, 1 };
+
+            foreach (var size in shipSizes)
+            {
+                bool placed = false;
+                while (!placed)
+                {
+                    Console.WriteLine($"Place a ship of size {size}:");
+                    DisplayBoard(playerBoard);
+
+                    Console.WriteLine("Enter orientation (H for horizontal, V for vertical): ");
+                    string orientationInput = Console.ReadLine();
+                    if (string.IsNullOrWhiteSpace(orientationInput))
+                    {
+                        Console.WriteLine("Invalid input. Try again.");
+                        continue;
+                    }
+
+                    char orientation = char.ToUpper(orientationInput[0]);
+                    bool horizontal = orientation == 'H';
+
+                    Console.WriteLine("Enter starting position (x y): ");
+                    string[] input = Console.ReadLine()?.Split();
+                    if (input == null || input.Length != 2 || !int.TryParse(input[0], out int x) || !int.TryParse(input[1], out int y))
+                    {
+                        Console.WriteLine("Invalid input. Try again.");
+                        continue;
+                    }
+
+                    if (CanPlaceShip(playerBoard, x, y, size, horizontal))
+                    {
+                        PlaceShip(playerBoard, playerShips, x, y, size, horizontal);
+                        placed = true;
+                    }
+                    else
+                    {
+                        Console.WriteLine("Invalid position. Try again.");
+                    }
+                }
+            }
         }
 
         public void PlayerMove(int x, int y)
@@ -214,6 +258,8 @@ namespace Battleships
 
         public void StartGame()
         {
+            PlaceShipsManually();
+
             while (!IsGameOver())
             {
                 Console.WriteLine("Your Board:");
@@ -223,9 +269,12 @@ namespace Battleships
                 DisplayBoard(computerViewBoard);
 
                 Console.WriteLine("Enter your move (x y): ");
-                string[] input = Console.ReadLine().Split();
-                int x = int.Parse(input[0]);
-                int y = int.Parse(input[1]);
+                string[] input = Console.ReadLine()?.Split();
+                if (input == null || input.Length != 2 || !int.TryParse(input[0], out int x) || !int.TryParse(input[1], out int y))
+                {
+                    Console.WriteLine("Invalid input. Try again.");
+                    continue;
+                }
 
                 PlayerMove(x, y);
 
