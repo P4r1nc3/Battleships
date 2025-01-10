@@ -12,355 +12,271 @@ namespace Battleships
         }
     }
 
-    public class BattleshipGame
+    internal class BattleshipGame
     {
         private Board playerBoard;
         private Board computerBoard;
-        private Graphics graphics;
         private Random random;
+        private Graphic graphic;
 
         public BattleshipGame()
         {
-            playerBoard = new Board("Player");
-            computerBoard = new Board("Computer");
-            graphics = new Graphics();
+            playerBoard = new Board();
+            computerBoard = new Board();
             random = new Random();
+            graphic = new Graphic();
         }
 
         public void StartGame()
         {
-            graphics.PrintMessage("Welcome to Battleships!");
+            Console.WriteLine("Welcome to Battleships!");
 
-            graphics.PrintMessage("Setting up player board.");
-            playerBoard.SetupBoardFromInput(graphics);
+            // Player places ships
+            Console.WriteLine("Place your ships on the board:");
+            playerBoard.PlaceShipsManually(graphic);
 
-            graphics.PrintMessage("Setting up computer board.");
-            computerBoard.SetupBoardRandom(random);
+            // Computer places ships
+            computerBoard.PlaceShipsAutomatically(random);
 
-            bool playerTurn = true;
-
-            while (!playerBoard.AllShipsSunk() && !computerBoard.AllShipsSunk())
+            // Start the game loop
+            bool gameOver = false;
+            while (!gameOver)
             {
-                graphics.PrintBoard(playerBoard, computerBoard, playerTurn);
+                Console.Clear();
 
-                if (playerTurn)
+                // Display turn feedback
+                if (!string.IsNullOrEmpty(graphic.LastPlayerMove))
                 {
-                    graphics.PrintMessage("Your turn. Enter coordinates to fire (e.g., 05):");
-                    string input = Console.ReadLine();
-                    if (!IsValidFireInput(input))
-                    {
-                        graphics.PrintMessage("Invalid input. Enter two digits (e.g., 05 or 98).");
-                        continue;
-                    }
-                    (int x, int y) = ParseFireCoordinates(input);
-
-                    if (computerBoard.FireAt(x, y))
-                    {
-                        graphics.PrintMessage("Hit!");
-                    }
-                    else
-                    {
-                        graphics.PrintMessage("Miss.");
-                        playerTurn = false;
-                    }
+                    Console.WriteLine($"You fired at {graphic.LastPlayerMove}: {(graphic.LastPlayerHit ? "Hit" : "Miss")}");
                 }
-                else
-                {
-                    graphics.PrintMessage("Computer's turn.");
-                    (int x, int y) = computerBoard.GetComputerMove(random);
 
-                    if (playerBoard.FireAt(x, y))
-                    {
-                        graphics.PrintMessage($"Computer hit your ship at {x},{y}!");
-                    }
-                    else
-                    {
-                        graphics.PrintMessage($"Computer missed at {x},{y}.");
-                        playerTurn = true;
-                    }
+                if (!string.IsNullOrEmpty(graphic.LastComputerMove))
+                {
+                    Console.WriteLine($"Computer fired at {graphic.LastComputerMove}: {(graphic.LastComputerHit ? "Hit" : "Miss")}");
+                }
+
+                Console.WriteLine();
+                Console.WriteLine();
+
+                Console.WriteLine("Your board:");
+                graphic.DisplayBoard(playerBoard, true);
+
+                Console.WriteLine("Computer's board:");
+                graphic.DisplayBoard(computerBoard, false);
+
+                // Player's turn
+                Console.WriteLine("Your turn! Enter coordinates to fire (e.g., 34):");
+                string input = Console.ReadLine();
+                if (!computerBoard.FireAt(input))
+                {
+                    Console.WriteLine("Invalid input or already fired there. Try again.");
+                    continue;
+                }
+                graphic.LastPlayerMove = input;
+                graphic.LastPlayerHit = computerBoard.WasLastHit();
+
+                // Check if computer lost
+                if (computerBoard.AreAllShipsSunk())
+                {
+                    Console.WriteLine("You won!");
+                    gameOver = true;
+                    break;
+                }
+
+                // Computer's turn
+                Console.WriteLine("Computer's turn...");
+                string computerMove;
+                do
+                {
+                    int x = random.Next(0, 10);
+                    int y = random.Next(0, 10);
+                    computerMove = x.ToString() + y.ToString();
+                } while (!playerBoard.FireAt(computerMove));
+
+                graphic.LastComputerMove = computerMove;
+                graphic.LastComputerHit = playerBoard.WasLastHit();
+
+                Console.WriteLine();
+
+                // Check if player lost
+                if (playerBoard.AreAllShipsSunk())
+                {
+                    Console.WriteLine("You lost!");
+                    gameOver = true;
                 }
             }
-
-            graphics.PrintBoard(playerBoard, computerBoard, true);
-            graphics.PrintMessage(playerBoard.AllShipsSunk() ? "Computer wins!" : "You win!");
-        }
-
-        private bool IsValidFireInput(string input)
-        {
-            if (input.Length != 2) return false;
-            return char.IsDigit(input[0]) && char.IsDigit(input[1]);
-        }
-
-        private (int, int) ParseFireCoordinates(string input)
-        {
-            int x = input[0] - '0';
-            int y = input[1] - '0';
-            return (x, y);
         }
     }
 
-    public class Board
+    internal class Board
     {
-        private const int BoardSize = 10;
-        private readonly string owner;
-        private readonly char[,] grid;
+        private const int Size = 10;
+        private readonly Cell[,] grid;
         private readonly List<Ship> ships;
+        private bool lastHit;
 
-        public Board(string owner)
+        public Board()
         {
-            this.owner = owner;
-            grid = new char[BoardSize, BoardSize];
+            grid = new Cell[Size, Size];
             ships = new List<Ship>();
+            for (int x = 0; x < Size; x++)
+                for (int y = 0; y < Size; y++)
+                    grid[x, y] = new Cell();
+        }
 
-            for (int i = 0; i < BoardSize; i++)
+        public void PlaceShipsManually(Graphic graphic)
+        {
+            foreach (var shipSize in new[] { 4, 3, 3, 2, 2, 2, 1, 1, 1, 1 })
             {
-                for (int j = 0; j < BoardSize; j++)
+                bool placed = false;
+                while (!placed)
                 {
-                    grid[i, j] = '.';
+                    Console.WriteLine($"Place a ship of size {shipSize} (e.g., H09 or V85):");
+                    string input = Console.ReadLine();
+                    if (TryPlaceShip(input, shipSize))
+                        placed = true;
+                    else
+                        Console.WriteLine("Invalid placement. Try again.");
+                }
+                graphic.DisplayBoard(this, true);
+            }
+        }
+
+        public void PlaceShipsAutomatically(Random random)
+        {
+            foreach (var shipSize in new[] { 4, 3, 3, 2, 2, 2, 1, 1, 1, 1 })
+            {
+                bool placed = false;
+                while (!placed)
+                {
+                    string orientation = random.Next(0, 2) == 0 ? "H" : "V";
+                    int x = random.Next(0, 10);
+                    int y = random.Next(0, 10);
+                    placed = TryPlaceShip(orientation + x.ToString() + y.ToString(), shipSize);
                 }
             }
         }
 
-        public void SetupBoardFromInput(Graphics graphics)
+        private bool TryPlaceShip(string input, int size)
         {
-            graphics.PrintBoard(this, null, true);
-            AddShip(graphics, "four-mast", 4);
-            for (int i = 0; i < 2; i++)
-            {
-                graphics.PrintBoard(this, null, true);
-                AddShip(graphics, "three-mast", 3);
-            }
-            for (int i = 0; i < 3; i++)
-            {
-                graphics.PrintBoard(this, null, true);
-                AddShip(graphics, "two-mast", 2);
-            }
-            for (int i = 0; i < 4; i++)
-            {
-                graphics.PrintBoard(this, null, true);
-                AddShip(graphics, "one-mast", 1);
-            }
-        }
+            if (string.IsNullOrEmpty(input) || input.Length < 3)
+                return false;
 
-        public void SetupBoardRandom(Random random)
-        {
-            AddShipRandom(random, 4);
-            for (int i = 0; i < 2; i++) AddShipRandom(random, 3);
-            for (int i = 0; i < 3; i++) AddShipRandom(random, 2);
-            for (int i = 0; i < 4; i++) AddShipRandom(random, 1);
-        }
+            char orientation = input[0];
+            if (orientation != 'H' && orientation != 'V')
+                return false;
 
-        private void AddShip(Graphics graphics, string name, int size)
-        {
-            while (true)
-            {
-                graphics.PrintMessage($"Place your {name} (size {size}) (e.g., H09):");
-                string input = Console.ReadLine();
-                if (!IsValidPlacementInput(input))
-                {
-                    graphics.PrintMessage("Invalid input. Use H/V followed by two digits.");
-                    continue;
-                }
-                char direction = input[0];
-                int x = input[1] - '0';
-                int y = input[2] - '0';
+            if (!int.TryParse(input.Substring(1, 1), out int x) || !int.TryParse(input.Substring(2, 1), out int y))
+                return false;
 
-                if (CanPlaceShip(x, y, size, direction == 'H'))
-                {
-                    PlaceShip(x, y, size, direction == 'H');
-                    graphics.PrintBoard(this, null, true);
-                    break;
-                }
+            int dx = orientation == 'H' ? 1 : 0;
+            int dy = orientation == 'V' ? 1 : 0;
 
-                graphics.PrintMessage("Invalid placement. Try again.");
-            }
-        }
-
-        private void AddShipRandom(Random random, int size)
-        {
-            while (true)
-            {
-                int x = random.Next(BoardSize);
-                int y = random.Next(BoardSize);
-                bool horizontal = random.Next(2) == 0;
-
-                if (CanPlaceShip(x, y, size, horizontal))
-                {
-                    PlaceShip(x, y, size, horizontal);
-                    break;
-                }
-            }
-        }
-
-        private bool IsValidPlacementInput(string input)
-        {
-            if (input.Length != 3) return false;
-            if (input[0] != 'H' && input[0] != 'V') return false;
-            if (!char.IsDigit(input[1]) || !char.IsDigit(input[2])) return false;
-            return true;
-        }
-
-        private bool CanPlaceShip(int x, int y, int size, bool horizontal)
-        {
+            // Check if ship fits and doesn't overlap or touch others
             for (int i = 0; i < size; i++)
             {
-                int dx = horizontal ? i : 0;
-                int dy = horizontal ? 0 : i;
-
-                if (x + dx >= BoardSize || y + dy >= BoardSize || grid[x + dx, y + dy] != '.')
-                    return false;
-
-                if (!IsSurroundingAreaClear(x + dx, y + dy))
+                int nx = x + i * dx;
+                int ny = y + i * dy;
+                if (nx < 0 || ny < 0 || nx >= Size || ny >= Size || !IsCellAvailable(nx, ny))
                     return false;
             }
 
+            // Place ship
+            Ship ship = new Ship(size);
+            for (int i = 0; i < size; i++)
+            {
+                int nx = x + i * dx;
+                int ny = y + i * dy;
+                grid[nx, ny].HasShip = true;
+                ship.Cells.Add(grid[nx, ny]);
+            }
+            ships.Add(ship);
             return true;
         }
 
-        private bool IsSurroundingAreaClear(int x, int y)
+        private bool IsCellAvailable(int x, int y)
         {
             for (int dx = -1; dx <= 1; dx++)
-            {
                 for (int dy = -1; dy <= 1; dy++)
                 {
                     int nx = x + dx;
                     int ny = y + dy;
-
-                    if (nx >= 0 && nx < BoardSize && ny >= 0 && ny < BoardSize && grid[nx, ny] == 'S')
-                    {
+                    if (nx >= 0 && ny >= 0 && nx < Size && ny < Size && grid[nx, ny].HasShip)
                         return false;
-                    }
                 }
-            }
-
             return true;
         }
 
-        private void PlaceShip(int x, int y, int size, bool horizontal)
+        public bool FireAt(string input)
         {
-            Ship ship = new Ship(size);
-            ships.Add(ship);
+            if (string.IsNullOrEmpty(input) || input.Length != 2)
+                return false;
 
-            for (int i = 0; i < size; i++)
-            {
-                int dx = horizontal ? i : 0;
-                int dy = horizontal ? 0 : i;
+            if (!int.TryParse(input[0].ToString(), out int x) || !int.TryParse(input[1].ToString(), out int y))
+                return false;
 
-                grid[x + dx, y + dy] = 'S';
-                ship.AddPosition(x + dx, y + dy);
-            }
+            if (x < 0 || y < 0 || x >= Size || y >= Size || grid[x, y].IsHit)
+                return false;
+
+            lastHit = grid[x, y].HasShip;
+            grid[x, y].IsHit = true;
+            return true;
         }
 
-        public bool FireAt(int x, int y)
-        {
-            if (grid[x, y] == 'S')
-            {
-                grid[x, y] = 'X';
-                foreach (var ship in ships)
-                {
-                    ship.Hit(x, y);
-                }
-                return true;
-            }
+        public bool WasLastHit() => lastHit;
 
-            if (grid[x, y] == '.')
-            {
-                grid[x, y] = 'O';
-            }
-
-            return false;
-        }
-
-        public (int, int) GetComputerMove(Random random)
-        {
-            while (true)
-            {
-                int x = random.Next(BoardSize);
-                int y = random.Next(BoardSize);
-
-                if (grid[x, y] == '.' || grid[x, y] == 'S')
-                {
-                    return (x, y);
-                }
-            }
-        }
-
-        public bool AllShipsSunk()
+        public bool AreAllShipsSunk()
         {
             return ships.All(ship => ship.IsSunk);
         }
 
-        public char[,] GetGrid() => grid;
+        public Cell[,] GetGrid() => grid;
 
-        public char[,] GetHiddenGrid()
-        {
-            var hiddenGrid = new char[BoardSize, BoardSize];
-            for (int i = 0; i < BoardSize; i++)
-            {
-                for (int j = 0; j < BoardSize; j++)
-                {
-                    hiddenGrid[i, j] = (grid[i, j] == 'S') ? '.' : grid[i, j];
-                }
-            }
-            return hiddenGrid;
-        }
+        public int GetSize() => Size;
     }
 
-    public class Ship
+    internal class Cell
     {
-        private readonly HashSet<(int, int)> positions;
-        private readonly HashSet<(int, int)> hits;
+        public bool HasShip { get; set; }
+        public bool IsHit { get; set; }
+    }
+
+    internal class Ship
+    {
+        public List<Cell> Cells { get; }
 
         public Ship(int size)
         {
-            positions = new HashSet<(int, int)>();
-            hits = new HashSet<(int, int)>();
+            Cells = new List<Cell>(size);
         }
 
-        public void AddPosition(int x, int y)
-        {
-            positions.Add((x, y));
-        }
-
-        public void Hit(int x, int y)
-        {
-            if (positions.Contains((x, y)))
-            {
-                hits.Add((x, y));
-            }
-        }
-
-        public bool IsSunk => positions.SetEquals(hits);
+        public bool IsSunk => Cells.All(cell => cell.IsHit);
     }
 
-    public class Graphics
+    internal class Graphic
     {
-        public void PrintMessage(string message)
-        {
-            Console.WriteLine(message);
-        }
+        public string LastPlayerMove { get; set; }
+        public bool LastPlayerHit { get; set; }
+        public string LastComputerMove { get; set; }
+        public bool LastComputerHit { get; set; }
 
-        public void PrintBoard(Board playerBoard, Board computerBoard, bool showAll)
-        {
-            Console.WriteLine("Player Board:");
-            PrintGrid(playerBoard.GetGrid());
-
-            if (computerBoard != null)
-            {
-                Console.WriteLine("Computer Board:");
-                PrintGrid(showAll ? computerBoard.GetGrid() : computerBoard.GetHiddenGrid());
-            }
-        }
-
-        private void PrintGrid(char[,] grid)
+        public void DisplayBoard(Board board, bool showShips)
         {
             Console.WriteLine("  0 1 2 3 4 5 6 7 8 9");
-            for (int y = 0; y < 10; y++)
+            Cell[,] grid = board.GetGrid();
+            int size = board.GetSize();
+
+            for (int y = 0; y < size; y++)
             {
                 Console.Write(y + " ");
-                for (int x = 0; x < 10; x++)
+                for (int x = 0; x < size; x++)
                 {
-                    Console.Write(grid[x, y] + " ");
+                    if (grid[x, y].IsHit)
+                        Console.Write(grid[x, y].HasShip ? "X " : "M ");
+                    else if (grid[x, y].HasShip && showShips)
+                        Console.Write("S ");
+                    else
+                        Console.Write(". ");
                 }
                 Console.WriteLine();
             }
