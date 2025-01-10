@@ -41,13 +41,18 @@ namespace Battleships
 
             while (!playerBoard.AllShipsSunk() && !computerBoard.AllShipsSunk())
             {
-                graphics.PrintBoard(playerBoard, computerBoard);
+                graphics.PrintBoard(playerBoard, computerBoard, playerTurn);
 
                 if (playerTurn)
                 {
-                    graphics.PrintMessage("Your turn. Enter coordinates to fire (e.g., A5):");
+                    graphics.PrintMessage("Your turn. Enter coordinates to fire (e.g., 05):");
                     string input = Console.ReadLine();
-                    (int x, int y) = ParseCoordinates(input);
+                    if (!IsValidFireInput(input))
+                    {
+                        graphics.PrintMessage("Invalid input. Enter two digits (e.g., 05 or 98).");
+                        continue;
+                    }
+                    (int x, int y) = ParseFireCoordinates(input);
 
                     if (computerBoard.FireAt(x, y))
                     {
@@ -76,15 +81,20 @@ namespace Battleships
                 }
             }
 
-            graphics.PrintBoard(playerBoard, computerBoard);
+            graphics.PrintBoard(playerBoard, computerBoard, true);
             graphics.PrintMessage(playerBoard.AllShipsSunk() ? "Computer wins!" : "You win!");
         }
 
-        private (int, int) ParseCoordinates(string input)
+        private bool IsValidFireInput(string input)
         {
-            char letter = input[0];
-            int x = letter - 'A';
-            int y = int.Parse(input.Substring(1));
+            if (input.Length != 2) return false;
+            return char.IsDigit(input[0]) && char.IsDigit(input[1]);
+        }
+
+        private (int, int) ParseFireCoordinates(string input)
+        {
+            int x = input[0] - '0';
+            int y = input[1] - '0';
             return (x, y);
         }
     }
@@ -113,10 +123,23 @@ namespace Battleships
 
         public void SetupBoardFromInput(Graphics graphics)
         {
+            graphics.PrintBoard(this, null, true);
             AddShip(graphics, "four-mast", 4);
-            for (int i = 0; i < 2; i++) AddShip(graphics, "three-mast", 3);
-            for (int i = 0; i < 3; i++) AddShip(graphics, "two-mast", 2);
-            for (int i = 0; i < 4; i++) AddShip(graphics, "one-mast", 1);
+            for (int i = 0; i < 2; i++)
+            {
+                graphics.PrintBoard(this, null, true);
+                AddShip(graphics, "three-mast", 3);
+            }
+            for (int i = 0; i < 3; i++)
+            {
+                graphics.PrintBoard(this, null, true);
+                AddShip(graphics, "two-mast", 2);
+            }
+            for (int i = 0; i < 4; i++)
+            {
+                graphics.PrintBoard(this, null, true);
+                AddShip(graphics, "one-mast", 1);
+            }
         }
 
         public void SetupBoardRandom(Random random)
@@ -133,6 +156,11 @@ namespace Battleships
             {
                 graphics.PrintMessage($"Place your {name} (size {size}) (e.g., H09):");
                 string input = Console.ReadLine();
+                if (!IsValidPlacementInput(input))
+                {
+                    graphics.PrintMessage("Invalid input. Use H/V followed by two digits.");
+                    continue;
+                }
                 char direction = input[0];
                 int x = input[1] - '0';
                 int y = input[2] - '0';
@@ -140,6 +168,7 @@ namespace Battleships
                 if (CanPlaceShip(x, y, size, direction == 'H'))
                 {
                     PlaceShip(x, y, size, direction == 'H');
+                    graphics.PrintBoard(this, null, true);
                     break;
                 }
 
@@ -163,6 +192,14 @@ namespace Battleships
             }
         }
 
+        private bool IsValidPlacementInput(string input)
+        {
+            if (input.Length != 3) return false;
+            if (input[0] != 'H' && input[0] != 'V') return false;
+            if (!char.IsDigit(input[1]) || !char.IsDigit(input[2])) return false;
+            return true;
+        }
+
         private bool CanPlaceShip(int x, int y, int size, bool horizontal)
         {
             for (int i = 0; i < size; i++)
@@ -172,6 +209,28 @@ namespace Battleships
 
                 if (x + dx >= BoardSize || y + dy >= BoardSize || grid[x + dx, y + dy] != '.')
                     return false;
+
+                if (!IsSurroundingAreaClear(x + dx, y + dy))
+                    return false;
+            }
+
+            return true;
+        }
+
+        private bool IsSurroundingAreaClear(int x, int y)
+        {
+            for (int dx = -1; dx <= 1; dx++)
+            {
+                for (int dy = -1; dy <= 1; dy++)
+                {
+                    int nx = x + dx;
+                    int ny = y + dy;
+
+                    if (nx >= 0 && nx < BoardSize && ny >= 0 && ny < BoardSize && grid[nx, ny] == 'S')
+                    {
+                        return false;
+                    }
+                }
             }
 
             return true;
@@ -232,6 +291,19 @@ namespace Battleships
         }
 
         public char[,] GetGrid() => grid;
+
+        public char[,] GetHiddenGrid()
+        {
+            var hiddenGrid = new char[BoardSize, BoardSize];
+            for (int i = 0; i < BoardSize; i++)
+            {
+                for (int j = 0; j < BoardSize; j++)
+                {
+                    hiddenGrid[i, j] = (grid[i, j] == 'S') ? '.' : grid[i, j];
+                }
+            }
+            return hiddenGrid;
+        }
     }
 
     public class Ship
@@ -268,19 +340,24 @@ namespace Battleships
             Console.WriteLine(message);
         }
 
-        public void PrintBoard(Board playerBoard, Board computerBoard)
+        public void PrintBoard(Board playerBoard, Board computerBoard, bool showAll)
         {
             Console.WriteLine("Player Board:");
             PrintGrid(playerBoard.GetGrid());
 
-            Console.WriteLine("Computer Board:");
-            PrintGrid(computerBoard.GetGrid());
+            if (computerBoard != null)
+            {
+                Console.WriteLine("Computer Board:");
+                PrintGrid(showAll ? computerBoard.GetGrid() : computerBoard.GetHiddenGrid());
+            }
         }
 
         private void PrintGrid(char[,] grid)
         {
+            Console.WriteLine("  0 1 2 3 4 5 6 7 8 9");
             for (int y = 0; y < 10; y++)
             {
+                Console.Write(y + " ");
                 for (int x = 0; x < 10; x++)
                 {
                     Console.Write(grid[x, y] + " ");
