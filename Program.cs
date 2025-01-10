@@ -11,7 +11,6 @@ namespace Battleships
     {
         public static void Main()
         {
-            Console.WriteLine("TEST TEST TEST!");
             BattleshipGame game = new BattleshipGame();
             game.StartGame();
         }

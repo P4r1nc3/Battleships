@@ -61,36 +61,36 @@ namespace Battleships
                 bool placed = false;
                 while (!placed)
                 {
-                    int x = random.Next(BoardSize);
                     int y = random.Next(BoardSize);
+                    int x = random.Next(BoardSize);
                     bool horizontal = random.Next(2) == 0;
 
-                    if (CanPlaceShip(board, x, y, size, horizontal))
+                    if (CanPlaceShip(board, y, x, size, horizontal))
                     {
-                        PlaceShip(board, ships, x, y, size, horizontal);
+                        PlaceShip(board, ships, y, x, size, horizontal);
                         placed = true;
                     }
                 }
             }
         }
 
-        private bool CanPlaceShip(char[,] board, int x, int y, int size, bool horizontal)
+        private bool CanPlaceShip(char[,] board, int y, int x, int size, bool horizontal)
         {
             for (int i = 0; i < size; i++)
             {
-                int nx = horizontal ? x : x + i;
-                int ny = horizontal ? y + i : y;
+                int ny = horizontal ? y : y + i;
+                int nx = horizontal ? x + i : x;
 
-                if (nx < 0 || nx >= BoardSize || ny < 0 || ny >= BoardSize || board[nx, ny] != Empty)
+                if (ny < 0 || ny >= BoardSize || nx < 0 || nx >= BoardSize || board[ny, nx] != Empty)
                     return false;
 
-                for (int dx = -1; dx <= 1; dx++)
+                for (int dy = -1; dy <= 1; dy++)
                 {
-                    for (int dy = -1; dy <= 1; dy++)
+                    for (int dx = -1; dx <= 1; dx++)
                     {
-                        int sx = nx + dx;
                         int sy = ny + dy;
-                        if (sx >= 0 && sx < BoardSize && sy >= 0 && sy < BoardSize && board[sx, sy] == Ship)
+                        int sx = nx + dx;
+                        if (sy >= 0 && sy < BoardSize && sx >= 0 && sx < BoardSize && board[sy, sx] == Ship)
                             return false;
                     }
                 }
@@ -99,15 +99,15 @@ namespace Battleships
             return true;
         }
 
-        private void PlaceShip(char[,] board, List<Ship> ships, int x, int y, int size, bool horizontal)
+        private void PlaceShip(char[,] board, List<Ship> ships, int y, int x, int size, bool horizontal)
         {
             Ship ship = new Ship(size);
             for (int i = 0; i < size; i++)
             {
-                int nx = horizontal ? x : x + i;
-                int ny = horizontal ? y + i : y;
-                board[nx, ny] = Ship;
-                ship.Positions.Add((nx, ny));
+                int ny = horizontal ? y : y + i;
+                int nx = horizontal ? x + i : x;
+                board[ny, nx] = Ship;
+                ship.Positions.Add((ny, nx));
             }
             ships.Add(ship);
         }
@@ -144,9 +144,9 @@ namespace Battleships
                         continue;
                     }
 
-                    if (CanPlaceShip(playerBoard, x, y, size, horizontal))
+                    if (CanPlaceShip(playerBoard, y, x, size, horizontal))
                     {
-                        PlaceShip(playerBoard, playerShips, x, y, size, horizontal);
+                        PlaceShip(playerBoard, playerShips, y, x, size, horizontal);
                         placed = true;
                     }
                     else
@@ -157,56 +157,56 @@ namespace Battleships
             }
         }
 
-        public void PlayerMove(int x, int y)
+        public void PlayerMove(int y, int x)
         {
-            if (computerViewBoard[x, y] != Empty)
+            if (computerViewBoard[y, x] != Empty)
             {
                 Console.WriteLine("You already shot there!");
                 return;
             }
 
-            if (computerBoard[x, y] == Ship)
+            if (computerBoard[y, x] == Ship)
             {
-                computerViewBoard[x, y] = Hit;
-                computerBoard[x, y] = Hit;
+                computerViewBoard[y, x] = Hit;
+                computerBoard[y, x] = Hit;
                 Console.WriteLine("Hit!");
-                CheckIfShipSunk(computerShips, x, y);
+                CheckIfShipSunk(computerShips, y, x);
             }
             else
             {
-                computerViewBoard[x, y] = Miss;
+                computerViewBoard[y, x] = Miss;
                 Console.WriteLine("Miss!");
             }
         }
 
         public void ComputerMove()
         {
-            int x, y;
+            int y, x;
             do
             {
-                x = random.Next(BoardSize);
                 y = random.Next(BoardSize);
-            } while (playerViewBoard[x, y] != Empty);
+                x = random.Next(BoardSize);
+            } while (playerViewBoard[y, x] != Empty);
 
-            if (playerBoard[x, y] == Ship)
+            if (playerBoard[y, x] == Ship)
             {
-                playerViewBoard[x, y] = Hit;
-                playerBoard[x, y] = Hit;
-                Console.WriteLine("Computer hit your ship at ({0}, {1})!", x, y);
-                CheckIfShipSunk(playerShips, x, y);
+                playerViewBoard[y, x] = Hit;
+                playerBoard[y, x] = Hit;
+                Console.WriteLine("Computer hit your ship at ({0}, {1})!", y, x);
+                CheckIfShipSunk(playerShips, y, x);
             }
             else
             {
-                playerViewBoard[x, y] = Miss;
-                Console.WriteLine("Computer missed at ({0}, {1}).", x, y);
+                playerViewBoard[y, x] = Miss;
+                Console.WriteLine("Computer missed at ({0}, {1}).", y, x);
             }
         }
 
-        private void CheckIfShipSunk(List<Ship> ships, int x, int y)
+        private void CheckIfShipSunk(List<Ship> ships, int y, int x)
         {
             foreach (var ship in ships)
             {
-                if (ship.Positions.Contains((x, y)))
+                if (ship.Positions.Contains((y, x)))
                 {
                     ship.Hits++;
                     if (ship.Hits == ship.Size)
@@ -219,19 +219,19 @@ namespace Battleships
             }
         }
 
-        private void MarkSurrounding(List<(int x, int y)> positions)
+        private void MarkSurrounding(List<(int y, int x)> positions)
         {
-            foreach (var (x, y) in positions)
+            foreach (var (y, x) in positions)
             {
-                for (int dx = -1; dx <= 1; dx++)
+                for (int dy = -1; dy <= 1; dy++)
                 {
-                    for (int dy = -1; dy <= 1; dy++)
+                    for (int dx = -1; dx <= 1; dx++)
                     {
-                        int nx = x + dx;
                         int ny = y + dy;
-                        if (nx >= 0 && nx < BoardSize && ny >= 0 && ny < BoardSize && playerViewBoard[nx, ny] == Empty)
+                        int nx = x + dx;
+                        if (ny >= 0 && ny < BoardSize && nx >= 0 && nx < BoardSize && playerViewBoard[ny, nx] == Empty)
                         {
-                            playerViewBoard[nx, ny] = Miss;
+                            playerViewBoard[ny, nx] = Miss;
                         }
                     }
                 }
@@ -276,7 +276,7 @@ namespace Battleships
                     continue;
                 }
 
-                PlayerMove(x, y);
+                PlayerMove(y, x);
 
                 if (IsGameOver()) break;
 
