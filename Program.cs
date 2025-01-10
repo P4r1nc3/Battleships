@@ -42,17 +42,32 @@ namespace Battleships
             bool gameOver = false;
             while (!gameOver)
             {
-                Console.Clear();
-
                 // Display turn feedback
                 if (!string.IsNullOrEmpty(graphic.LastPlayerMove))
                 {
                     Console.WriteLine($"You fired at {graphic.LastPlayerMove}: {(graphic.LastPlayerHit ? "Hit" : "Miss")}");
+                    if (graphic.LastPlayerHit)
+                    {
+                        Ship? hitShip = computerBoard.GetHitShip(graphic.LastPlayerMove);
+                        if (hitShip != null && hitShip.IsSunk)
+                        {
+                            Console.WriteLine("You have sunk a computer's ship!");
+                        }
+                    }
                 }
 
                 if (!string.IsNullOrEmpty(graphic.LastComputerMove))
                 {
                     Console.WriteLine($"Computer fired at {graphic.LastComputerMove}: {(graphic.LastComputerHit ? "Hit" : "Miss")}");
+                    if (graphic.LastComputerHit)
+                    {
+                        Ship? hitShip = playerBoard.GetHitShip(graphic.LastComputerMove);
+                        if (hitShip != null && hitShip.IsSunk)
+                        {
+                            Console.WriteLine("A ship has been sunk!");
+                            playerBoard.MarkSurroundingCellsAsClear(hitShip);
+                        }
+                    }
                 }
 
                 Console.WriteLine();
@@ -66,7 +81,7 @@ namespace Battleships
 
                 // Player's turn
                 Console.WriteLine("Your turn! Enter coordinates to fire (e.g., 34):");
-                string input = Console.ReadLine();
+                string? input = Console.ReadLine();
                 if (string.IsNullOrWhiteSpace(input) || !computerBoard.FireAt(input))
                 {
                     Console.WriteLine("Invalid input or already fired there. Try again.");
@@ -95,15 +110,6 @@ namespace Battleships
 
                 graphic.LastComputerMove = computerMove;
                 graphic.LastComputerHit = playerBoard.WasLastHit();
-
-                if (graphic.LastComputerHit)
-                {
-                    Ship hitShip = playerBoard.GetHitShip(computerMove);
-                    if (hitShip != null && hitShip.IsSunk)
-                    {
-                        playerBoard.MarkSurroundingCellsAsClear(hitShip);
-                    }
-                }
 
                 Console.WriteLine();
 
@@ -141,7 +147,7 @@ namespace Battleships
                 while (!placed)
                 {
                     Console.WriteLine($"Place a ship of size {shipSize} (e.g., H09 or V85):");
-                    string input = Console.ReadLine();
+                    string? input = Console.ReadLine();
                     if (string.IsNullOrWhiteSpace(input) || !TryPlaceShip(input, shipSize))
                     {
                         Console.WriteLine("Invalid placement. Try again.");
@@ -245,7 +251,7 @@ namespace Battleships
 
         public int GetSize() => Size;
 
-        public Ship GetHitShip(string input)
+        public Ship? GetHitShip(string input)
         {
             if (input.Length != 2 || !int.TryParse(input[0].ToString(), out int x) || !int.TryParse(input[1].ToString(), out int y))
                 return null;
@@ -314,9 +320,9 @@ namespace Battleships
 
     internal class Graphic
     {
-        public string LastPlayerMove { get; set; } = string.Empty;
+        public string? LastPlayerMove { get; set; } = string.Empty;
         public bool LastPlayerHit { get; set; }
-        public string LastComputerMove { get; set; } = string.Empty;
+        public string? LastComputerMove { get; set; } = string.Empty;
         public bool LastComputerHit { get; set; }
 
         public void DisplayBoard(Board board, bool showShips)
