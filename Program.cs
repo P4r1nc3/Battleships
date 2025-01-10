@@ -96,6 +96,15 @@ namespace Battleships
                 graphic.LastComputerMove = computerMove;
                 graphic.LastComputerHit = playerBoard.WasLastHit();
 
+                if (graphic.LastComputerHit)
+                {
+                    Ship hitShip = playerBoard.GetHitShip(computerMove);
+                    if (hitShip != null && hitShip.IsSunk)
+                    {
+                        playerBoard.MarkSurroundingCellsAsClear(hitShip);
+                    }
+                }
+
                 Console.WriteLine();
 
                 // Check if player lost
@@ -121,7 +130,7 @@ namespace Battleships
             ships = new List<Ship>();
             for (int x = 0; x < Size; x++)
                 for (int y = 0; y < Size; y++)
-                    grid[x, y] = new Cell();
+                    grid[x, y] = new Cell { X = x, Y = y };
         }
 
         public void PlaceShipsManually(Graphic graphic)
@@ -235,12 +244,60 @@ namespace Battleships
         public Cell[,] GetGrid() => grid;
 
         public int GetSize() => Size;
+
+        public Ship GetHitShip(string input)
+        {
+            if (input.Length != 2 || !int.TryParse(input[0].ToString(), out int x) || !int.TryParse(input[1].ToString(), out int y))
+                return null;
+
+            foreach (var ship in ships)
+            {
+                if (ship.Cells.Contains(grid[x, y]))
+                    return ship;
+            }
+
+            return null;
+        }
+
+        public void MarkSurroundingCellsAsClear(Ship ship)
+        {
+            foreach (var cell in ship.Cells)
+            {
+                foreach (var neighbor in GetNeighbors(cell))
+                {
+                    if (!neighbor.IsHit)
+                    {
+                        neighbor.IsHit = true;
+                        neighbor.IsClear = true;
+                    }
+                }
+            }
+        }
+
+        private IEnumerable<Cell> GetNeighbors(Cell cell)
+        {
+            for (int dx = -1; dx <= 1; dx++)
+            {
+                for (int dy = -1; dy <= 1; dy++)
+                {
+                    int nx = cell.X + dx;
+                    int ny = cell.Y + dy;
+                    if (nx >= 0 && ny >= 0 && nx < Size && ny < Size)
+                    {
+                        yield return grid[nx, ny];
+                    }
+                }
+            }
+        }
     }
 
     internal class Cell
     {
+        public int X { get; set; }
+        public int Y { get; set; }
         public bool HasShip { get; set; }
         public bool IsHit { get; set; }
+        public bool IsClear { get; set; }
     }
 
     internal class Ship
@@ -274,7 +331,14 @@ namespace Battleships
                 for (int x = 0; x < size; x++)
                 {
                     if (grid[x, y].IsHit)
-                        Console.Write(grid[x, y].HasShip ? "X " : "M ");
+                    {
+                        if (grid[x, y].HasShip)
+                            Console.Write("X ");
+                        else if (grid[x, y].IsClear)
+                            Console.Write("C ");
+                        else
+                            Console.Write("M ");
+                    }
                     else if (grid[x, y].HasShip && showShips)
                         Console.Write("S ");
                     else
