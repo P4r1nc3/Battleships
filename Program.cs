@@ -66,7 +66,7 @@ namespace Battleships
 
                 // Player's turn
                 Console.WriteLine("Your turn! Enter coordinates to fire (e.g., 34):");
-                string? input = Console.ReadLine();
+                string input = Console.ReadLine();
                 if (string.IsNullOrWhiteSpace(input) || !computerBoard.FireAt(input))
                 {
                     Console.WriteLine("Invalid input or already fired there. Try again.");
@@ -132,7 +132,7 @@ namespace Battleships
                 while (!placed)
                 {
                     Console.WriteLine($"Place a ship of size {shipSize} (e.g., H09 or V85):");
-                    string? input = Console.ReadLine();
+                    string input = Console.ReadLine();
                     if (string.IsNullOrWhiteSpace(input) || !TryPlaceShip(input, shipSize))
                     {
                         Console.WriteLine("Invalid placement. Try again.");
